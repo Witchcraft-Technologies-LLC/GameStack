@@ -1,0 +1,84 @@
+# Acceptance candidate: PaperMC 26.2 build 129 (STABLE, 2026-09-23).
+schema_version: 2
+id: minecraft-paper
+version: 0.1.0-dev2
+name: GameStack — private server for Minecraft Java (Paper)
+image: itzg/minecraft-server@sha256:290293031dda9838ef43bc5702dc95bd213a68da76093b2aec39fbc3b4de25bb
+data_path: /data
+user: installing-user
+stop_timeout: 120
+startup_timeout: 600
+ports:
+- host: 25565
+  container: 25565
+  protocol: tcp
+  purpose: Minecraft Java player connections
+environment:
+  EULA:
+    prompt: Accept the Minecraft End User License Agreement
+    secret: false
+    agreement: https://www.minecraft.net/en-us/eula
+  MOTD:
+    prompt: Server description
+    secret: false
+    default: Our friends' server
+  OPS:
+    prompt: Owner's Minecraft Java profile name (letters, digits, underscore)
+    secret: false
+    constraints:
+      characters: ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_
+      min_length: 3
+      max_length: 16
+  WHITELIST:
+    prompt: Initial player Java profile names, including yourself (comma-separated;
+      no spaces)
+    secret: false
+    constraints:
+      characters: ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_
+      min_length: 3
+      max_length: 16
+      separator: ','
+  TYPE:
+    value: PAPER
+  VERSION:
+    value: '26.2'
+  PAPER_BUILD:
+    value: '129'
+  MEMORY:
+    value: 4G
+  MODE:
+    value: survival
+  DIFFICULTY:
+    value: normal
+  MAX_PLAYERS:
+    value: '8'
+  ONLINE_MODE:
+    value: 'TRUE'
+  ENABLE_WHITELIST:
+    value: 'TRUE'
+  ENFORCE_WHITELIST:
+    value: 'TRUE'
+  EXISTING_WHITELIST_FILE:
+    value: SKIP
+  EXISTING_OPS_FILE:
+    value: SKIP
+  USER_API_PROVIDER:
+    value: mojang
+  ENABLE_RCON:
+    value: 'FALSE'
+  ENABLE_QUERY:
+    value: 'FALSE'
+  ENABLE_ROLLING_LOGS:
+    value: 'TRUE'
+  SKIP_DOWNLOAD_DEFAULTS:
+    value: 'TRUE'
+  ENABLE_SSH:
+    value: 'FALSE'
+  ENABLE_AUTOPAUSE:
+    value: 'FALSE'
+  ENABLE_AUTOSTOP:
+    value: 'FALSE'
+  ENABLE_JMX:
+    value: 'FALSE'
+healthcheck:
+- mc-health

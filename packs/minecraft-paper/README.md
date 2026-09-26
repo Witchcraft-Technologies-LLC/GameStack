@@ -1,8 +1,9 @@
 # GameStack — private server for Minecraft Java (Paper)
 
-**Experimental playable milestone.** Backup, restore, and safe update commands do
-not exist yet. Use a disposable new world for evaluation. This pack is not yet a
-supported or sellable release. The playable milestone passed all manual acceptance
+**Experimental playable milestone.** Manual backup, integrity checks, and safe
+restore are implemented and passed user-confirmed acceptance. Explicit updates
+are implemented; update acceptance passed by user sign-off on 2026-09-26. Use a disposable new world for evaluation. This pack is not yet a supported
+or sellable release. The playable milestone passed all manual acceptance
 checks, confirmed by the user on 2026-09-06; see [the acceptance record](acceptance.md).
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
@@ -106,7 +107,8 @@ gamestack rm minecraft-paper
 This asks before stopping/removing the container and retains all instance files.
 The retired name cannot be reused. Never delete the instance to repair a startup
 failure. Do not hand-edit generated Compose or instance metadata. No import,
-restore, update, downgrade, or automatic backup procedure is offered yet.
+automatic update, or downgrade procedure is offered. Manual restore
+is available as described below.
 
 The image digest, Minecraft version, and Paper build are fixed. Restarting does not
 select a newer build. Avoid manually replacing these values: world-format updates
@@ -152,3 +154,65 @@ Selection reviewed 2026-09-05: Paper 26.2 build 121, Java 25 Temurin image. See
 [upstream-lock.json](upstream-lock.json), [license inventory](license-inventory.json),
 and [third-party review](../../THIRD_PARTY.md). Official sources were used because
 Context7 was unavailable. No game JARs, images, or game assets are redistributed.
+
+## Experimental manual backup
+
+Run `gamestack backup minecraft-paper` (substitute your instance name). Players
+are disconnected during stopped-state capture; an initially running server resumes
+with a health check. The archive captures all dimensions, player data, allowlist,
+operators, and other files under `data/`, plus saved GameStack configuration.
+
+Use `gamestack backup list minecraft-paper`, then
+`gamestack backup verify minecraft-paper BACKUP-ID` to recheck integrity offline.
+Archives are uncompressed, unencrypted, private files under the instance's
+`backups/` folder. Keep all copies private and allow room for a full data copy.
+V0.1 keeps every completed backup and safety backup; no copies are pruned, so disk
+usage grows. See the [backup guide](../../docs/cli.md#manual-backups) for
+failures, retained partial artifacts, and restart guidance. Restore acceptance,
+including in-game recovery, passed by user confirmation; integrity verification
+alone does not make this pack supported.
+
+## Experimental restore
+
+Use `gamestack restore minecraft-paper` to choose a local backup, or
+`gamestack restore minecraft-paper BACKUP-ID` to select one explicitly. Substitute
+your instance name. Confirm the replacement and temporary player disconnection.
+The entire data folder is restored, including worlds, player lists, plugins, and
+server files. Current GameStack settings remain active; the saved GamePack must
+match exactly. Version rollback and recovery onto another host are not included.
+
+GameStack verifies and stages the backup, stops a running server, makes a verified
+safety backup, and preserves the old data folder before replacement. Initially
+running servers restart and must pass health verification; stopped or crashed
+servers stay stopped. Missing data can be recovered with an explicit warning that
+there is no current world to snapshot. Inaccessible data cannot be skipped.
+
+The result prints the safety backup ID/location and retained recovery directory.
+Safety archives appear in `gamestack backup list minecraft-paper` and can be
+restored with the same command. Allow space for staged data plus a full safety
+archive; no recovery copies are pruned. If restore is interrupted or health fails,
+read the [restore recovery guide](../../docs/cli.md#interrupted-restore-recovery)
+before starting again. See the [restore acceptance checklist](acceptance.md#restore-acceptance--passed-by-user-confirmation).
+The user confirmed in-game world recovery and all backup/restore criteria.
+Implementation and automated tests alone do not establish it.
+
+## Explicit update and recovery
+
+For a disposable instance on the reviewed build 121, use the included
+[build 129 candidate](candidates/26.2-129/pack.yaml) and follow the
+[CLI update guide](../../docs/cli.md#explicit-paper-updates):
+
+```bash
+gamestack update minecraft-paper --pack packs/minecraft-paper/candidates/26.2-129/pack.yaml
+gamestack update minecraft-paper --recover
+```
+
+The first command requires a running, healthy server, creates a verified backup
+while stopped, recreates on the pinned image, and checks the downloaded Paper
+JAR checksum. The second returns the active world to its **pre-update** state
+and retains later data separately. Both require confirmation (`--yes` for
+scripts). Keep room for multiple full world copies. The current build 121 pack
+and its settings are not silently changed; this workflow needs a selected
+reviewed candidate. Safe update acceptance passed by user sign-off on 2026-09-26; direct Ubuntu
+harness and live interruption logs were not supplied. Final release acceptance
+remains pending.

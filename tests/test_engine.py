@@ -7,13 +7,14 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import yaml
 
 from gamestack.cli import main
-from gamestack.pack import GameStackError, load_pack, read_yaml, validate
-from gamestack.runtime import Runtime, checked_root
+from gamestack.pack import CONFIG_LIMIT, GameStackError, load_pack, parse_yaml, read_yaml, validate
+from gamestack.runtime import Runtime, checked_root, compose
+from gamestack.filesystem import safe_child
 
 EXAMPLE = Path(__file__).resolve().parents[1] / "packs/example/pack.yaml"
 
@@ -29,6 +30,68 @@ class EngineTests(unittest.TestCase):
 
     def prepare(self):
         return self.runtime.prepare(self.pack, "friends", self.values)
+
+    def test_yaml_reads_are_bounded_and_parsing_is_shared(self):
+        payload = b'key: value\n' + b' ' * (CONFIG_LIMIT - 11)
+        self.assertEqual(parse_yaml(payload), {'key': 'value'})
+        stream = io.BytesIO(payload + b'x' * 100)
+        with patch.object(Path, 'open', return_value=stream):
+            with self.assertRaisesRegex(GameStackError, 'too large'):
+                read_yaml(Path('synthetic.yaml'))
+        # Check the read bound even when a source grows or has no useful stat size.
+        source = MagicMock()
+        source.__enter__.return_value.read.return_value = b'key: value'
+        with patch.object(Path, 'open', return_value=source):
+            self.assertEqual(read_yaml(Path('synthetic.yaml')), {'key': 'value'})
+        source.__enter__.return_value.read.assert_called_once_with(CONFIG_LIMIT + 1)
+        for bad in (b'key: a\nkey: secret', b'- secret', b'key: \xff', b'key: ['):
+            with self.subTest(bad=bad), self.assertRaises(GameStackError):
+                parse_yaml(bad)
+
+    def test_managed_children_reject_traversal_and_linked_ancestors(self):
+        directory = self.prepare()
+        for component in ('', '.', '..', '../other', 'data/../other', 'data/file', str(directory)):
+            with self.subTest(component=component), self.assertRaises(GameStackError):
+                safe_child(directory, component)
+        link = self.root.parent / 'linked'
+        try:
+            link.symlink_to(self.root, target_is_directory=True)
+        except (OSError, NotImplementedError):
+            self.skipTest('symlinks unavailable')
+        with self.assertRaises(GameStackError):
+            safe_child(link / 'friends', 'data')
+        self.assertEqual(safe_child(directory, 'new'), directory / 'new')
+
+    def test_operations_use_configuration_revalidated_under_lock(self):
+        for operation in ('backup', 'remove', 'start', 'stop', 'restart'):
+            with self.subTest(operation=operation):
+                runtime = Runtime(self.root / operation)
+                directory = runtime.prepare(self.pack, 'friends', self.values)
+                changed = copy.deepcopy(self.pack)
+                changed['stop_timeout'] = 99
+                original_lock = runtime.lock
+                @contextlib.contextmanager
+                def lock(path):
+                    with original_lock(path):
+                        (directory / 'pack.yaml').write_text(yaml.safe_dump(changed), encoding='utf-8')
+                        (directory / 'compose.yaml').write_text(yaml.safe_dump(compose(changed, self.values, directory)), encoding='utf-8')
+                        yield
+                with patch.object(runtime, 'lock', side_effect=lock), patch.object(runtime, 'doctor'), \
+                        patch.object(runtime, 'command', return_value='') as command, \
+                        patch.object(runtime, 'start_server') as start, \
+                        patch.object(runtime, 'backup_state', side_effect=['running', 'exited']), \
+                        patch('gamestack.backup.create', return_value=directory / 'synthetic.tar') as create:
+                    if operation in ('backup', 'remove'):
+                        getattr(runtime, operation)('friends')
+                    else:
+                        runtime.lifecycle(operation, 'friends')
+                if operation != 'start':
+                    stop = next(c.args[0] for c in command.call_args_list if 'stop' in c.args[0])
+                    self.assertIn('99', stop)
+                if operation in ('backup', 'start', 'restart'):
+                    self.assertEqual(start.call_args.args[1], changed)
+                if operation == 'backup':
+                    self.assertEqual(create.call_args.args[2], changed)
 
     def test_command_does_not_search_outside_path(self):
         # Windows CreateProcess also searches system directories when PATH is

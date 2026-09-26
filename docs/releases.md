@@ -1,6 +1,6 @@
 # CI and GitHub releases
 
-The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0.dev1`, and real GamePack plus backup/restore/update acceptance is still pending.
+The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0.dev1`. Backup/restore acceptance passed by user confirmation; explicit Paper update acceptance passed by user sign-off; final GamePack release acceptance remains pending.
 
 ## Release a version
 
@@ -21,8 +21,8 @@ Checks include:
 
 - Python 3.11–3.14 on Ubuntu 22.04 x86-64, Windows 2022 x86-64, and macOS 14 ARM64.
 - Wheel and source builds, strict metadata checks, and fresh-environment installs of each.
-- Native PyInstaller builds with Python 3.11 on all three OS targets, and CLI smoke tests of the bundles both before and after archiving/extraction. Artifact smoke tests use an empty subprocess search path to exclude host Docker tooling; they verify preparation, listing with unavailable status, and refusal to remove without confirmation. Real Docker behavior is covered separately by Linux integration tests.
-- Real Docker lifecycle, health, persistence through container recreation, and removal with retained synthetic data on Ubuntu. This runs against both the installed Python CLI and Linux executable.
+- Native PyInstaller builds with Python 3.11 on all three OS targets, and CLI smoke tests of the bundles both before and after archiving/extraction. Artifact smoke tests use an empty subprocess search path to exclude host Docker tooling; they verify preparation, listing with unavailable status, offline empty-backup listing, invalid backup-ID rejection, and refusal to remove without confirmation. Real Docker behavior is covered separately by Linux integration tests.
+- Real Docker lifecycle, health, persistence through container recreation, manual backup/verification with automatic resume and stopped-state preservation, and removal with retained synthetic data on Ubuntu. This runs against both the installed Python CLI and Linux executable.
 - Publisher regression tests: version mismatch, checksum failures, conflicting tags, existing releases/drafts, failed release gates, and incomplete uploads.
 
 Artifacts have versioned names:
@@ -74,6 +74,19 @@ Artifact smoke workspaces retry Windows permission failures after 0.5, 1, 2, and
 
 ## Local verification and rebuilding
 
+Use a Python 3.11+ virtual environment and install the package before running
+checks. `PYTHONPATH=src` alone is insufficient: artifact smoke tests intentionally
+clear it and run outside the checkout. For development tests only:
+
+```bash
+python -m venv .venv
+# Activate .venv using your shell's activation command.
+python -m pip install -e . packaging
+python -m unittest discover -s tests -v
+```
+
+For release artifacts, install the pinned build tools and run:
+
 ```bash
 python -m pip install -r scripts/requirements-ci.txt
 python -m pip install --no-build-isolation -e .
@@ -96,3 +109,5 @@ GAMESTACK_DOCKER_TEST=1 python -m unittest discover -s tests/integration -v
 Set `GAMESTACK_EXECUTABLE` to an absolute bundled executable path to exercise it instead. The test pulls a pinned public nginx image, creates a uniquely named container and synthetic temporary data, and removes only its test resources. It never touches existing game instances. Docker socket access is required; a test that cannot reach Docker fails rather than silently passing.
 
 Use `actionlint .github/workflows/tests.yml` to validate workflow syntax. Local tests do not substitute for the first successful full GitHub run; Windows/macOS runners and publishing are only verified when exercised there.
+
+For opt-in filesystem performance measurements, see [the benchmark procedure and results](performance.md).

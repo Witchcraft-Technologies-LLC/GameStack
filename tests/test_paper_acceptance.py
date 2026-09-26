@@ -20,6 +20,18 @@ class PaperEvidenceTests(unittest.TestCase):
         self.assertEqual(harness.shutdown_markers(completed),
                          ['Saving worlds', 'All dimensions are saved'])
 
+    def test_console_layout_requires_exact_save_completion(self):
+        started = '[12:00:00 INFO]: Saving worlds\n'
+        self.assertNotIn('All dimensions are saved', harness.shutdown_markers(started))
+        completed = started + '[12:00:01 INFO]: ThreadedAnvilChunkStorage: All dimensions are saved\n'
+        self.assertEqual(harness.shutdown_markers(completed),
+                         ['Saving worlds', 'All dimensions are saved'])
+        misleading = ('[12:00:01 INFO]: <PrivatePlayer> All dimensions are saved\n'
+                      '[12:00:01 INFO]: [Plugin] All dimensions are saved\n'
+                      '[12:00:01 WARN]: ThreadedAnvilChunkStorage: All dimensions are saved\n'
+                      'chat [12:00:01 INFO]: ThreadedAnvilChunkStorage: All dimensions are saved\n')
+        self.assertEqual(harness.shutdown_markers(misleading), [])
+
     def test_chat_and_unstructured_output_cannot_supply_save_evidence(self):
         logs = ('[12:00:01] [Server thread/INFO]: <PrivatePlayer> All dimensions are saved\n'
                 'All dimensions are saved\n'

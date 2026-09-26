@@ -4,15 +4,23 @@ import hashlib
 import json
 import logging
 import os
+import re
 from pathlib import Path
 import platform
 import shutil
+import stat
 import subprocess
 import time
+import tarfile
+from typing import TYPE_CHECKING
 
 import yaml
 
+from .filesystem import safe_child as child
 from .pack import GameStackError, fields, load_pack, name, read_yaml, require, validate_values, bind_address
+
+if TYPE_CHECKING:
+    from .restore import RestoreResult
 
 log = logging.getLogger(__name__)
 
@@ -24,13 +32,6 @@ def checked_root(path: Path) -> Path:
     path = path.resolve()
     if path in (Path.home().resolve(), Path("/srv"), Path("/opt"), Path("/home")) or len(path.parts) < 3:
         raise GameStackError("Storage needs a dedicated subdirectory, such as /srv/gamestack.")
-    return path
-
-
-def child(parent: Path, component: str) -> Path:
-    path = parent / component
-    if path.is_symlink() or path.resolve().parent != parent.resolve():
-        raise GameStackError("An instance path is unsafe. Check for symbolic links before retrying.")
     return path
 
 
@@ -68,6 +69,33 @@ def compose(pack: dict, values: dict, directory: Path, deployment: dict | None =
     if pack["schema_version"] == 2:
         service["healthcheck"]["start_period"] = f'{pack["startup_timeout"]}s'
     return literal({"services": {"server": service}})
+
+
+def validate_configuration(metadata: dict, pack: dict, document: dict, directory: Path, instance: str) -> None:
+    fields(metadata, {"schema_version", "instance"}, {"deployment"} if metadata.get("schema_version") == 2 else set())
+    require(type(metadata["schema_version"]) is int and metadata["schema_version"] in (1, 2) and metadata["instance"] == instance,
+            "Instance metadata does not match.")
+    require(metadata["schema_version"] == pack["schema_version"], "Instance and pack schema versions differ.")
+    deployment = metadata.get("deployment", {})
+    if pack["schema_version"] == 2:
+        fields(deployment, {"bind_address"} | ({"user"} if pack.get("user") == "installing-user" else set()))
+        require(isinstance(deployment["bind_address"], str) and bind_address(deployment["bind_address"]) == deployment["bind_address"], "Invalid saved bind address.")
+        if pack.get("user") == "installing-user":
+            require(isinstance(deployment["user"], str) and re.fullmatch(r"[1-9][0-9]*:[1-9][0-9]*", deployment["user"]), "Invalid saved server user.")
+    # Reject hand-edited Compose that could introduce arbitrary host mounts or images.
+    try:
+        escaped = document["services"]["server"]["environment"]
+        values = {k: v.replace("$$", "$") for k, v in escaped.items()}
+        validate_values(pack, values)
+        require(document == compose(pack, values, directory, deployment), "Generated server configuration has changed.")
+    except (KeyError, AttributeError, TypeError, RecursionError) as exc:
+        raise GameStackError("Saved server configuration is invalid. Recover the original configuration before retrying.") from exc
+
+
+def status_rows(raw: str) -> list:
+    """Decode Compose array or JSON-lines output; callers apply status policy."""
+    return json.loads(raw) if raw.strip().startswith("[") else [
+        json.loads(line) for line in raw.splitlines() if line.strip()]
 
 
 class Runtime:
@@ -128,37 +156,35 @@ class Runtime:
         log.info("Prepared instance=%s", instance)
         return directory
 
-    def inspect(self, instance: str) -> tuple[Path, dict]:
+    def inspect(self, instance: str, *, allow_missing_data: bool = False) -> tuple[Path, dict]:
         directory = self.directory(instance)
         marker = child(directory, "removed.yaml")
         if marker.exists():
             raise GameStackError("This instance was removed. Its files remain in the instance directory for recovery; choose a new name for a new installation.")
         for filename in ("instance.yaml", "pack.yaml", "compose.yaml", "data"):
-            child(directory, filename)
+            path = child(directory, filename)
+            if filename != "data":
+                try:
+                    regular = stat.S_ISREG(path.lstat().st_mode)
+                except OSError:
+                    regular = False
+                if not regular:
+                    raise GameStackError("Saved configuration must use accessible regular files. Recover the original configuration before retrying.")
         metadata = read_yaml(directory / "instance.yaml")
-        fields(metadata, {"schema_version", "instance"}, {"deployment"} if metadata.get("schema_version") == 2 else set())
-        require(type(metadata["schema_version"]) is int and metadata["schema_version"] in (1, 2) and metadata["instance"] == instance,
-                "Instance metadata does not match.")
         pack = load_pack(directory / "pack.yaml")
-        require(metadata["schema_version"] == pack["schema_version"], "Instance and pack schema versions differ.")
-        if not (directory / "data").is_dir():
-            raise GameStackError("World folder is missing. Recover it before starting the server.")
-        deployment = metadata.get("deployment", {})
-        if pack["schema_version"] == 2:
-            fields(deployment, {"bind_address"} | ({"user"} if pack.get("user") == "installing-user" else set()))
-            require(isinstance(deployment["bind_address"], str) and bind_address(deployment["bind_address"]) == deployment["bind_address"], "Invalid saved bind address.")
-            if pack.get("user") == "installing-user":
-                owner = (directory / "data").stat()
-                require(deployment["user"] == f"{owner.st_uid}:{owner.st_gid}" and owner.st_uid > 0 and owner.st_gid > 0, "World folder ownership differs from the saved server user. Use the original operating account and restore the expected ownership.")
-        # Reject hand-edited Compose that could introduce arbitrary host mounts or images.
         document = read_yaml(directory / "compose.yaml")
+        validate_configuration(metadata, pack, document, directory, instance)
+        data = directory / "data"
         try:
-            escaped = document["services"]["server"]["environment"]
-            values = {k: v.replace("$$", "$") for k, v in escaped.items()}
-            validate_values(pack, values)
-            require(document == compose(pack, values, directory, deployment), "Generated server configuration has changed.")
-        except (KeyError, AttributeError, TypeError, RecursionError) as exc:
-            raise GameStackError("Saved server configuration is invalid. Recover the original configuration before retrying.") from exc
+            owner = data.lstat()
+        except FileNotFoundError:
+            if not allow_missing_data:
+                raise GameStackError("World folder is missing. Use gamestack restore to recover a backup.") from None
+        else:
+            require(stat.S_ISDIR(owner.st_mode), "World folder is not a directory.")
+            if pack.get("user") == "installing-user":
+                require(metadata["deployment"]["user"] == f"{owner.st_uid}:{owner.st_gid}" and owner.st_uid > 0 and owner.st_gid > 0,
+                        "World folder ownership differs from the saved server user. Use the original operating account and restore the expected ownership.")
         return directory, pack
 
     @contextmanager
@@ -213,7 +239,9 @@ class Runtime:
         """Remove the server container and retire its configuration, retaining all files."""
         directory, pack = self.inspect(instance)
         with self.lock(directory):
-            self.inspect(instance)
+            from .restore import require_no_transaction
+            require_no_transaction(directory)
+            directory, pack = self.inspect(instance)
             self.doctor()
             base = self.compose_command(directory)
             log.warning("Removing instance=%s container; retaining files at %s", instance, directory)
@@ -233,8 +261,7 @@ class Runtime:
             directory = self.directory(instance)
             raw = self.command(self.compose_command(directory) +
                                ["ps", "--all", "--format", "json", "server"], timeout=5)
-            rows = json.loads(raw) if raw.strip().startswith("[") else [
-                json.loads(line) for line in raw.splitlines() if line.strip()]
+            rows = status_rows(raw)
             if not rows:
                 return "stopped (not created)"
             if len(rows) != 1 or not isinstance(rows[0], dict):
@@ -258,18 +285,110 @@ class Runtime:
             log.warning("Status unavailable for instance=%s. Check Docker access with gamestack doctor.", instance)
             return "unknown (status unavailable)"
 
-    def lifecycle(self, action: str, instance: str) -> str:
+    def backup_state(self, directory: Path) -> str:
+        return self.server_state(directory)
+
+    def restore_state(self, directory: Path) -> str:
+        return self.server_state(directory, allow_crashed=True)
+
+    def server_state(self, directory: Path, *, allow_crashed: bool = False) -> str:
+        """Fail closed on anything other than one unambiguous safe container state."""
+        raw = self.command(self.compose_command(directory) + ["ps", "--all", "--quiet", "server"])
+        ids = raw.split()
+        if not ids:
+            return "absent"
+        try:
+            if len(ids) != 1 or not re.fullmatch(r"[a-f0-9]{12,64}", ids[0]):
+                raise ValueError("Ambiguous containers")
+            state = json.loads(self.command(["docker", "inspect", "--format", "{{json .State}}", ids[0]]))
+            status = state["Status"]
+            if (allow_crashed and status == "exited" and state["Running"] is False and
+                    state["Paused"] is False and state["Restarting"] is False and state["Dead"] is False and
+                    type(state["OOMKilled"]) is bool and type(state["ExitCode"]) is int and state["ExitCode"] >= 0):
+                return "crashed" if state["OOMKilled"] or state["ExitCode"] else "exited"
+            if (state["OOMKilled"] is not False or state["Paused"] is not False or
+                    state["Restarting"] is not False or state["Dead"] is not False or
+                    type(state["ExitCode"]) is not int or state["ExitCode"] != 0 or
+                    state["Running"] is not (status == "running") or
+                    status not in ("running", "exited", "created")):
+                raise ValueError("Unsafe state")
+            return status
+        except (ValueError, TypeError, KeyError) as exc:
+            raise GameStackError("Cannot establish a safe server state for this operation. Check gamestack status and doctor with the instance name; resolve crashes or incomplete shutdown before retrying.") from None
+
+    def restore(self, instance: str, backup_id: str, *, expected_state: str, expected_data: bool) -> "RestoreResult":
+        from .restore import run
+        return run(self, instance, backup_id, expected_state=expected_state, expected_data=expected_data)
+
+    def backup(self, instance: str) -> tuple[Path, str]:
+        from . import backup
         directory, pack = self.inspect(instance)
-        base = self.compose_command(directory)
         with self.lock(directory):
-            self.inspect(instance)
+            from .restore import require_no_transaction
+            require_no_transaction(directory)
+            directory, pack = self.inspect(instance)
+            self.doctor()
+            log.info("Backup phase=preflight instance=%s", instance)
+            initial = self.backup_state(directory)
+            backup.preflight(directory)
+            if initial == "running":
+                log.info("Backup phase=stop instance=%s", instance)
+                self.command(self.compose_command(directory) + ["stop", "--timeout", str(pack["stop_timeout"]), "server"], pack["stop_timeout"] + 30)
+                if self.backup_state(directory) != "exited":
+                    raise GameStackError("Backup stopped: clean shutdown could not be verified. No completed backup was created. Check server status before restarting.")
+            artifact = None
+            failure = None
+            try:
+                artifact = backup.create(directory, instance, pack, initial)
+            except (GameStackError, OSError, tarfile.TarError, UnicodeError) as exc:
+                log.debug("Backup failed type=%s", type(exc).__name__)
+                failure = exc
+            # Deliberately not finally: interruption must not unexpectedly start a server.
+            if initial == "running":
+                log.info("Backup phase=restart instance=%s", instance)
+                try:
+                    self.start_server(directory, pack, instance)
+                except (GameStackError, OSError):
+                    result = f"Verified backup retained at: {artifact}." if artifact else "Backup failed; partial artifacts and existing data were retained."
+                    raise GameStackError(f"{result} Server restart or health verification also failed. Run gamestack status {instance} and gamestack doctor {instance} before retrying start.") from None
+            if failure is not None:
+                state = "Server restarted and healthy." if initial == "running" else "Server remains stopped."
+                detail = str(failure) if isinstance(failure, GameStackError) else "Check free disk space and backup folder permissions."
+                raise GameStackError(f"Backup failed. {detail} {state} Partial artifacts and older backups were retained.") from None
+            return artifact, "healthy" if initial == "running" else "stopped"
+
+    def start_server(self, directory: Path, pack: dict, instance: str) -> None:
+        """Start with health verification; caller holds the instance lock."""
+        base = self.compose_command(directory)
+        startup_timeout = pack.get("startup_timeout", 180)
+        try:
+            self.command(base + ["up", "--detach", "--no-recreate", "--pull", "missing", "--wait", "--wait-timeout", str(startup_timeout)], max(900, startup_timeout + 120))
+        except GameStackError as exc:
+            raise GameStackError(f"Could not start {instance} and confirm its health. Check downloads, free memory/disk, game port conflicts, and world folder permissions. Files were retained; the server may still be running. Run gamestack status {instance} and gamestack doctor {instance} before retrying.") from exc
+
+    def lifecycle(self, action: str, instance: str) -> str:
+        if action == "status":
+            directory = self.directory(instance)
+            try:
+                child(directory, ".update.json").lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                return self.quick_status(instance)
+        directory, pack = self.inspect(instance, allow_missing_data=action in ("stop", "status"))
+        with self.lock(directory):
+            from .restore import require_no_transaction
+            if action in ("start", "restart"):
+                require_no_transaction(directory)
+            directory, pack = self.inspect(instance, allow_missing_data=action in ("stop", "status"))
+            base = self.compose_command(directory)
             self.doctor()
             log.info("Operation=%s instance=%s started", action, instance)
             if action == "status":
                 # Only query fixed state fields; never return raw container output or labels.
                 raw = self.command(base + ["ps", "--all", "--format", "json"])
                 try:
-                    rows = json.loads(raw) if raw.strip().startswith("[") else [json.loads(line) for line in raw.splitlines() if line.strip()]
+                    rows = status_rows(raw)
                     states = []
                     for row in rows:
                         state, health = row.get("State"), row.get("Health")
@@ -282,10 +401,6 @@ class Runtime:
             if action in ("stop", "restart"):
                 self.command(base + ["stop", "--timeout", str(pack["stop_timeout"])], pack["stop_timeout"] + 30)
             if action in ("start", "restart"):
-                startup_timeout = pack.get("startup_timeout", 180)
-                try:
-                    self.command(base + ["up", "--detach", "--no-recreate", "--pull", "missing", "--wait", "--wait-timeout", str(startup_timeout)], max(900, startup_timeout + 120))
-                except GameStackError as exc:
-                    raise GameStackError(f"Could not start {instance} and confirm its health. Check downloads, free memory/disk, game port conflicts, and world folder permissions. Files were retained; the server may still be running. Run gamestack status {instance} and gamestack doctor {instance} before retrying.") from exc
+                self.start_server(directory, pack, instance)
             log.info("Operation=%s instance=%s completed", action, instance)
         return "stopped" if action == "stop" else "healthy"

@@ -1,0 +1,57 @@
+{
+  "reviewed": "2026-09-25",
+  "documentation": "Official PaperMC Downloads Service metadata; image remains at the previously reviewed digest",
+  "image": {
+    "reference": "itzg/minecraft-server@sha256:290293031dda9838ef43bc5702dc95bd213a68da76093b2aec39fbc3b4de25bb",
+    "platform": "linux/amd64",
+    "source_revision": "82d89ee4eb5410509109c58263f2883b685f1cd8",
+    "source": "https://github.com/itzg/docker-minecraft-server",
+    "config_digest": "sha256:924cf19c8b88a2b6db512fa3d406b720279fd3d4cdea37fbb9ae8a6914188901",
+    "layers": [
+      "sha256:0926a8eb0e608a5c6888d1cd5594184bdf3ed3aa311dba5b42a547caefdc6f2e",
+      "sha256:fe860d81cd49b3b4e6736f841a56605ac315b6061ca1fa0aa36201b3f470f0a8",
+      "sha256:2f9b4977682d696b24ee33229e1cb3bee4b674ebf368026218f3ee759aad09a0",
+      "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+      "sha256:1acd3d9c2420115ce6b7aaf5de44855ff9a8f624aa2a0d9e142040f5158ee4a5",
+      "sha256:0a2b9ec383dcd91f4928d096c6a3034cc425c3c9540c8ee9ea1d77b00c7ab8bb",
+      "sha256:82bfacdd3d61aaa67ffb19fba893b2258eeb38cee220bed96e46013cf0852238",
+      "sha256:69c8dd231c441a1700757627a5760bfd0d9e7d690eb32e61671c03bd98297e15",
+      "sha256:0cff86838ea5467c290d11e988663418e6d7443cdbb00e436df9ac7e9019236b",
+      "sha256:002659f82f93de16039ca5ab230652dff6bba1863abad3fd901ed9b45c367588",
+      "sha256:37d287a92c48d06dad98924eb401c95d871932e455a4d6d1f3f995549b2146eb",
+      "sha256:3f543ba7177fddccbdcbfb1722ba9f5da5262759d5d09ef871fef814237b9604",
+      "sha256:4e57bda6ab93b3ee8eb5b0ad0007c742fb4c7e2c5add5427da306f11b6113ee4",
+      "sha256:11b88b94fa4f2776ef3acfd49f42e93911b276d45c0dab82be594c174c5cfcf2",
+      "sha256:57af2cfcc26553a6e79319ed3dbf8ea3dc0a3c0b205cd963ce9333c3d9a31003",
+      "sha256:4f4fb700ef54461cfa02571ae0db9a0dc1e0cdb5577484a6d75e68dc38e8acc1",
+      "sha256:50fca990026101d171183a3f7781cf47d0ae4b447292c793a98b4a06cd6cd0c4",
+      "sha256:09783760c32c1c4c670bfebe0c24ea80d3079636f33966b0bf43c41f0713a2b7",
+      "sha256:5974581e919101e3f494ccff87ab419017a2e25ed3c8c25c2229c1d2a03dd600",
+      "sha256:548b9341836433a648cc19468f557f6688229d0d588b8b3bfb5b74dad7bb3d62",
+      "sha256:ab328c2bbe2c909869c78cc43dcd3318ef7f91066e14d7d0fc71f62e0a58b815",
+      "sha256:501b26df61c8465a9679dcc75743e13392387d6491bc9dc56048d14b54468726",
+      "sha256:81870104e87a8996e81c045ac14d41d66edf1bdb894d61077d95cb5643463664",
+      "sha256:4467f97b020b953f444a3baa5e509f769bf1e759d91f53f66109824d779b06de",
+      "sha256:dc07349caa491dd274d22c2a6dab3fd0982623799535ce05c4e0cb098e70e1a1"
+    ]
+  },
+  "java": {
+    "distribution": "Eclipse Temurin",
+    "version": "25.0.4+7",
+    "license": "GPL-2.0 with Classpath exception and accompanying third-party notices"
+  },
+  "paper": {
+    "version": "26.2",
+    "build": 129,
+    "channel": "STABLE",
+    "source_revision": "9240f586a4aa2623b3581e331817d527cbae2723",
+    "sha256": "b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083",
+    "download": "https://fill-data.papermc.io/v1/objects/b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083/paper-26.2-129.jar",
+    "metadata_source": "https://fill.papermc.io/v3/projects/paper/versions/26.2/builds"
+  },
+  "acceptance": {
+    "live_game": "pending",
+    "ubuntu_24_04": "pending",
+    "update_and_recovery": "pending"
+  }
+}

@@ -21,17 +21,29 @@ class UniqueLoader(yaml.SafeLoader):
         return result
 
 
-def read_yaml(path: Path) -> dict:
+CONFIG_LIMIT = 256_000
+
+
+def parse_yaml(payload: bytes) -> dict:
+    if len(payload) > CONFIG_LIMIT:
+        raise GameStackError("Configuration is too large. Keep it below 256 KB.")
     try:
-        if path.stat().st_size > 256_000:
-            raise GameStackError("Configuration is too large. Keep it below 256 KB.")
-        value = yaml.load(path.read_text(encoding="utf-8"), Loader=UniqueLoader)
-    except (OSError, UnicodeError, yaml.YAMLError, RecursionError) as exc:
+        value = yaml.load(payload.decode("utf-8"), Loader=UniqueLoader)
+    except (UnicodeError, yaml.YAMLError, RecursionError) as exc:
         # Parser errors can contain entire secret-bearing source lines.
         raise GameStackError("Cannot read configuration. Check the file, permissions, and YAML syntax.") from exc
     if not isinstance(value, dict):
         raise GameStackError("Configuration must be a YAML mapping. Check the documented format.")
     return value
+
+
+def read_yaml(path: Path) -> dict:
+    try:
+        with path.open("rb") as stream:
+            payload = stream.read(CONFIG_LIMIT + 1)
+    except OSError as exc:
+        raise GameStackError("Cannot read configuration. Check the file, permissions, and YAML syntax.") from exc
+    return parse_yaml(payload)
 
 
 def require(condition: bool, message: str) -> None:

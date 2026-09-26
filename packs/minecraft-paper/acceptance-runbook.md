@@ -290,3 +290,115 @@ the original results. Fix demonstrated defects and rerun affected checks plus th
 unit suite. Repeat player persistence/lifecycle after pack or runtime changes.
 The pack remains experimental and unsupported/unsellable after this milestone;
 backup, restore, updates, and release clearance are separate gates.
+
+## Manual backup validation
+
+**Passed — user-confirmed manual command validation, 2026-09-06.** The user
+reports that the backup command works as intended when exercised manually.
+This is additional evidence beyond the earlier playable milestone sign-off.
+Backups remain uncompressed `.tar` archives; no backup behavior changed.
+
+That 2026-09-06 confirmation did not enumerate individual scenarios. On 2026-09-25,
+the user explicitly signed off all backup and restore checklist criteria, and
+separately confirmed corrupted-backup rejection and in-game world recovery. Detailed
+per-scenario logs, host details, and tested revision were not supplied. The opt-in
+Paper harness was not run by the agent. See [acceptance.md](acceptance.md).
+
+For repeat validation:
+Use only this runbook's disposable instance. Run `gamestack backup INSTANCE` while
+running, check healthy resume, then stop and repeat to confirm it stays stopped.
+Record IDs from `gamestack backup list INSTANCE` and run
+`gamestack backup verify INSTANCE BACKUP-ID` for each. Keep archived configuration
+private. Integrity checks do not replace a later actual restore test.
+
+## Manual restore validation
+
+**Passed — user-confirmed manual testing, 2026-09-06.** The user reports that
+manual testing of restore passed. This records the manual result; individual
+scenarios, host details, command output, and the tested revision were not supplied.
+The user signed off all restore checklist criteria on 2026-09-25; see
+[acceptance.md](acceptance.md#restore-acceptance--passed-by-user-confirmation).
+Safe updates and final release acceptance remain open.
+
+For repeat validation:
+
+Use this runbook's disposable instance and the same root/account throughout. Do
+not use an irreplaceable world. Record the tested revision and pack/image pins.
+
+1. Join in Minecraft Java, build a recognizable structure, and note its coordinates.
+   Run `gamestack backup INSTANCE`; record the resulting ID as the earlier backup.
+2. Change the structure and your inventory. Run `gamestack restore INSTANCE` and
+   choose the earlier backup. Confirm the printed scope and disconnection warning.
+3. Record the generated safety backup ID and retained recovery directory. Confirm
+   healthy completion, reconnect, and check the earlier structure/player state.
+4. Run `gamestack restore INSTANCE SAFETY-BACKUP-ID`. Reconnect after healthy
+   completion and verify the later structure/player state returns.
+5. Stop the server, restore the earlier backup again, and verify the result says
+   `stopped (health not tested)`. Start it explicitly and check the world again.
+6. Verify both archive IDs with `gamestack backup verify INSTANCE BACKUP-ID`.
+   Confirm current GameStack configuration files were unchanged and preserve all
+   archives/recovery folders. Complete the failure/recovery scenarios in
+   [acceptance.md](acceptance.md#restore-acceptance--passed-by-user-confirmation) using synthetic data.
+
+Record actual outcomes for repeat runs; unit tests or archive verification alone
+do not establish in-game recovery. For failures or interruptions, follow the
+[restore recovery procedure](../../docs/cli.md#interrupted-restore-recovery).
+
+## 7. Safe update acceptance (separate release gate)
+
+The user accepted this gate on 2026-09-26. The commands below remain the
+repeatable procedure; the local failure run used port 25566, while a direct
+Ubuntu harness result and live interruption log were not supplied. See the
+[acceptance record](acceptance.md#safe-update-acceptance--passed-by-user-sign-off-2026-09-26).
+
+Use a new disposable Ubuntu instance, not the working server. The commands
+above use Bash syntax. In fish, set variables with `set NAME value`; do not use
+`${NAME:?message}` or `NAME=$(command)`. `--root` names the parent directory
+of the installed instance folder, and the instance name must match that folder.
+Confirm `instance.yaml`, `pack.yaml`, and `compose.yaml` exist there before
+running a deliberate failure test.
+
+Build 129 was the
+newest stable Paper 26.2 build returned by the official Downloads Service on
+2026-09-25 (published 2026-09-23). The included candidate changes the GamePack
+version to `0.1.0-dev2` and Paper build from 121 to 129; its image digest stays
+at the reviewed build 121 image pin. Verify the API again before release:
+`https://fill.papermc.io/v3/projects/paper/versions/26.2/builds`.
+The candidate lock records build 129 JAR SHA-256
+`b1d8f6bfa1b6101fa8e947b53041cb3bdf5540e7b83b6547ca19ba7edefeb083`.
+Record candidate and lock file hashes with the tested revision.
+
+Opt-in automated recreation/persistence, checksum failure, and recovery test:
+
+```bash
+GAMESTACK_PAPER_UPDATE_TEST=1 GAMESTACK_MINECRAFT_EULA=TRUE GAMESTACK_PAPER_OWNER=YourJavaName python -m unittest discover -s tests/integration -p test_paper_update_docker.py -v
+```
+
+The tester must agree to the EULA personally. This harness retains its private
+disposable world and writes `update-evidence.json`; an opt-in skip or incomplete
+report is not a pass. It does not establish a player reconnect.
+
+For manual validation, start a disposable build 121 instance using section 3.
+Build a recognizable in-game marker, note inventory/location and the reported
+Paper build, then run:
+
+```bash
+gamestack --root "$PAPER_ACCEPT_ROOT" update "$PAPER_ACCEPT_NAME" --pack packs/minecraft-paper/candidates/26.2-129/pack.yaml
+gamestack --root "$PAPER_ACCEPT_ROOT" status "$PAPER_ACCEPT_NAME"
+```
+
+Check the pre-update backup ID with `gamestack backup verify`. Reconnect and
+confirm world/player state and Paper build 129. Create a second recognizable
+marker, then run `gamestack --root "$PAPER_ACCEPT_ROOT" update
+"$PAPER_ACCEPT_NAME" --recover`. Reconnect and confirm build 121 and the
+original marker. The second marker must be absent from the active world and
+present in the printed `post-update-data` copy. Keep both copies and the backup.
+
+On another disposable instance, change only the candidate lock's JAR hash to an
+incorrect 64-character lowercase hex value, apply it, and confirm the command
+fails after recreation, preserves `.update.json`, and blocks backup/start.
+Run `--recover` and confirm the pre-update world returns. Exercise interruption
+and insufficient-space cases on disposable worlds, recording the journal phase,
+retained files, and successful retry. Do not mark the update checklist passed
+without each observed result; report redacted host/revision, pins, backup IDs,
+health, container image ID, JAR hash, and player observations.
