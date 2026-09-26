@@ -26,7 +26,7 @@ You should not need to understand Docker Compose, SteamCMD, bind mounts, or Linu
 
 GameStack is currently in **early development: the first v0.1 engine milestone is implemented**. It is not a finished release and no GamePack is supported yet.
 
-The CLI can validate GamePack YAML, prompt for settings, prepare private instance storage, and list configured instances with state and health, and run start/stop/restart/status/doctor commands, plus `rm` to remove an instance while retaining its data. An experimental [Minecraft Paper pack](packs/minecraft-paper/README.md) now supplies the first real-game configuration. Its playable milestone passed user-confirmed manual acceptance on 2026-09-06. Manual backup creation, listing, integrity verification, and [safe restore](docs/cli.md#restore-backups) are implemented. Backup and restore acceptance passed by user confirmation; explicit Paper updates are implemented, with live update and final release acceptance pending. V0.1 keeps all completed backups without automatic pruning.
+The CLI can validate GamePack YAML, prompt for settings, prepare private instance storage, and list configured instances with state and health, and run start/stop/restart/status/doctor commands, plus `rm` to remove an instance while retaining its data. An experimental [Minecraft Paper pack](packs/minecraft-paper/README.md) now supplies the first real-game configuration. Its playable milestone passed user-confirmed manual acceptance on 2026-09-06. Manual backup creation, listing, integrity verification, and [safe restore](docs/cli.md#restore-backups) are implemented. Backup and restore acceptance passed by user confirmation; explicit Paper update acceptance passed by user sign-off on 2026-09-26; final release acceptance remains pending. V0.1 keeps all completed backups without automatic pruning.
 
 - [Try the development CLI](docs/cli.md)
 - [Write a GamePack](docs/gamepacks.md)
@@ -455,7 +455,7 @@ Potential future GamePacks include:
 | Valheim | Planned |
 | Project Zomboid | Planned |
 | Satisfactory | Planned |
-| Minecraft Paper | Playable and backup/restore acceptance passed by user confirmation; explicit update implemented, live update and final release gates pending |
+| Minecraft Paper | Playable and backup/restore acceptance passed by user confirmation; explicit update accepted by user sign-off; final release gate pending |
 | Palworld | Considering |
 | Enshrouded | Considering |
 | V Rising | Considering |

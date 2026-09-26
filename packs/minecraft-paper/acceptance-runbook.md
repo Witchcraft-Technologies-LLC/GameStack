@@ -346,7 +346,19 @@ do not establish in-game recovery. For failures or interruptions, follow the
 
 ## 7. Safe update acceptance (separate release gate)
 
-Use a new disposable Ubuntu instance, not the working server. Build 129 was the
+The user accepted this gate on 2026-09-26. The commands below remain the
+repeatable procedure; the local failure run used port 25566, while a direct
+Ubuntu harness result and live interruption log were not supplied. See the
+[acceptance record](acceptance.md#safe-update-acceptance--passed-by-user-sign-off-2026-09-26).
+
+Use a new disposable Ubuntu instance, not the working server. The commands
+above use Bash syntax. In fish, set variables with `set NAME value`; do not use
+`${NAME:?message}` or `NAME=$(command)`. `--root` names the parent directory
+of the installed instance folder, and the instance name must match that folder.
+Confirm `instance.yaml`, `pack.yaml`, and `compose.yaml` exist there before
+running a deliberate failure test.
+
+Build 129 was the
 newest stable Paper 26.2 build returned by the official Downloads Service on
 2026-09-25 (published 2026-09-23). The included candidate changes the GamePack
 version to `0.1.0-dev2` and Paper build from 121 to 129; its image digest stays

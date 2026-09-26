@@ -2,7 +2,7 @@
 
 **Experimental playable milestone.** Manual backup, integrity checks, and safe
 restore are implemented and passed user-confirmed acceptance. Explicit updates
-are implemented; live update acceptance remains pending. Use a disposable new world for evaluation. This pack is not yet a supported
+are implemented; update acceptance passed by user sign-off on 2026-09-26. Use a disposable new world for evaluation. This pack is not yet a supported
 or sellable release. The playable milestone passed all manual acceptance
 checks, confirmed by the user on 2026-09-06; see [the acceptance record](acceptance.md).
 
@@ -213,4 +213,6 @@ JAR checksum. The second returns the active world to its **pre-update** state
 and retains later data separately. Both require confirmation (`--yes` for
 scripts). Keep room for multiple full world copies. The current build 121 pack
 and its settings are not silently changed; this workflow needs a selected
-reviewed candidate. Live update acceptance is still pending.
+reviewed candidate. Safe update acceptance passed by user sign-off on 2026-09-26; direct Ubuntu
+harness and live interruption logs were not supplied. Final release acceptance
+remains pending.
