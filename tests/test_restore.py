@@ -111,9 +111,9 @@ class RestoreTests(unittest.TestCase):
 
     def test_changed_user_settings_remain_active(self):
         path = self.directory / 'compose.yaml'
-        config = yaml.safe_load(path.read_text())
+        config = yaml.safe_load(path.read_text(encoding='utf-8'))
         config['services']['server']['environment']['SERVER_NAME'] = 'current name'
-        path.write_text(yaml.safe_dump(config))
+        path.write_text(yaml.safe_dump(config), encoding='utf-8')
         before = path.read_bytes()
         with self.server():
             self.run_restore()
@@ -301,7 +301,7 @@ class RestoreTests(unittest.TestCase):
             self.run_restore('running')
         cmd.assert_not_called()
         link.unlink()
-        with self.server('running') as (_, cmd, _), patch.object(Path, 'is_mount', return_value=True), self.assertRaisesRegex(GameStackError, 'nested mounts'):
+        with self.server('running') as (_, cmd, _), patch('gamestack.restore.os.path.ismount', return_value=True), self.assertRaisesRegex(GameStackError, 'nested mounts'):
             self.run_restore('running')
         cmd.assert_not_called()
         with self.server('running') as (_, cmd, _), patch.object(os, 'getuid', return_value=os.getuid() + 1), self.assertRaisesRegex(GameStackError, 'operating account'):

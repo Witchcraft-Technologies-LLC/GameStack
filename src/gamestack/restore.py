@@ -74,7 +74,7 @@ def check_sources(directory: Path, pack: dict) -> bool:
                 mounts.add(Path(encoded))
         device = directory.stat().st_dev
         for archive_name, path, info in backup.inventory(directory):
-            if path.is_mount() or path in mounts or info.st_dev != device:
+            if os.path.ismount(path) or path in mounts or info.st_dev != device:
                 raise GameStackError("Restore requires data and staging on the instance filesystem without nested mounts. Preserve mounted data and correct the layout before retrying.")
             if os.name == "posix" and (info.st_uid, info.st_gid) != (os.getuid(), os.getgid()):
                 raise GameStackError("Restore source ownership differs from the operating account. Correct ownership using the original account before retrying.")
@@ -199,7 +199,7 @@ def move_directory(source: Path, destination: Path) -> None:
         pass
     else:
         raise GameStackError("Restore destination unexpectedly exists. Preserve all copies and reconcile the restore marker.")
-    if source.is_symlink() or not source.is_dir() or source.is_mount():
+    if source.is_symlink() or not source.is_dir() or os.path.ismount(source):
         raise GameStackError("Restore source directory became unsafe. Preserve all copies and reconcile the restore marker.")
     source.rename(destination)
 

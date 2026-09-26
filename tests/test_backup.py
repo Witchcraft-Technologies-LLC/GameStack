@@ -8,6 +8,7 @@ import stat
 import sys
 import tarfile
 import tempfile
+from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
 
@@ -261,6 +262,19 @@ class BackupTests(unittest.TestCase):
             path = self.create()
         backup.verify(path, 'friends')
         self.assertEqual(path.read_bytes(), path.with_suffix('.tar.partial').read_bytes())
+
+    def test_windows_signature_ignores_unstable_identity_metadata(self):
+        first = SimpleNamespace(st_mode=stat.S_IFREG | 0o600, st_size=5, st_mtime_ns=7,
+                                st_dev=1, st_ino=2, st_ctime_ns=3)
+        second = SimpleNamespace(st_mode=stat.S_IFREG | 0o400, st_size=5, st_mtime_ns=7,
+                                 st_dev=4, st_ino=5, st_ctime_ns=6)
+        with patch.object(backup.os, 'name', 'nt'):
+            self.assertEqual(backup.signature(first), backup.signature(second))
+            second.st_size += 1
+            self.assertNotEqual(backup.signature(first), backup.signature(second))
+            second.st_size -= 1
+            second.st_mtime_ns += 1
+            self.assertNotEqual(backup.signature(first), backup.signature(second))
 
     def test_source_change_detected(self):
         original = backup.HashReader.read

@@ -70,6 +70,9 @@ def selected(directory: Path, backup_id: str) -> Path:
 
 
 def signature(info: os.stat_result) -> tuple:
+    if os.name == "nt":
+        # Windows path and open-handle stats can disagree on identity metadata.
+        return (stat.S_IFMT(info.st_mode), info.st_size, info.st_mtime_ns)
     return (info.st_dev, info.st_ino, info.st_mode, info.st_size, info.st_mtime_ns, info.st_ctime_ns)
 
 
