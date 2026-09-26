@@ -1,5 +1,6 @@
 # Personal planning context
 /PROJECT.local.md
+/graphify-out
 
 # Local credentials (keep deliberate example templates publishable)
 .env
