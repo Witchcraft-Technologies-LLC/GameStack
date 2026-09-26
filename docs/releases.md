@@ -1,6 +1,6 @@
 # CI and GitHub releases
 
-The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0.dev1`, and real GamePack plus backup/restore/update acceptance is still pending.
+The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0.dev1`. Backup/restore acceptance passed by user confirmation; explicit Paper updates are implemented, with live update and final GamePack release acceptance pending.
 
 ## Release a version
 

@@ -1,8 +1,9 @@
 # GameStack — private server for Minecraft Java (Paper)
 
-**Experimental playable milestone.** Manual backup creation and integrity checks
-and safe restore are implemented; restore acceptance and safe updates remain pending. Use a disposable new world for evaluation. This pack is not yet a
-supported or sellable release. The playable milestone passed all manual acceptance
+**Experimental playable milestone.** Manual backup, integrity checks, and safe
+restore are implemented and passed user-confirmed acceptance. Explicit updates
+are implemented; live update acceptance remains pending. Use a disposable new world for evaluation. This pack is not yet a supported
+or sellable release. The playable milestone passed all manual acceptance
 checks, confirmed by the user on 2026-09-06; see [the acceptance record](acceptance.md).
 
 NOT AN OFFICIAL MINECRAFT PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MOJANG OR MICROSOFT.
@@ -106,7 +107,7 @@ gamestack rm minecraft-paper
 This asks before stopping/removing the container and retains all instance files.
 The retired name cannot be reused. Never delete the instance to repair a startup
 failure. Do not hand-edit generated Compose or instance metadata. No import,
-update, downgrade, or automatic backup procedure is offered yet. Manual restore
+automatic update, or downgrade procedure is offered. Manual restore
 is available as described below.
 
 The image digest, Minecraft version, and Paper build are fixed. Restarting does not
@@ -165,10 +166,11 @@ Use `gamestack backup list minecraft-paper`, then
 `gamestack backup verify minecraft-paper BACKUP-ID` to recheck integrity offline.
 Archives are uncompressed, unencrypted, private files under the instance's
 `backups/` folder. Keep all copies private and allow room for a full data copy.
-No copies are pruned. See the [backup guide](../../docs/cli.md#manual-backups) for
-failures, retained partial artifacts, and restart guidance. Restore and real-world
-recovery acceptance remain pending; integrity verification does not make this pack
-supported.
+V0.1 keeps every completed backup and safety backup; no copies are pruned, so disk
+usage grows. See the [backup guide](../../docs/cli.md#manual-backups) for
+failures, retained partial artifacts, and restart guidance. Restore acceptance,
+including in-game recovery, passed by user confirmation; integrity verification
+alone does not make this pack supported.
 
 ## Experimental restore
 
@@ -190,5 +192,25 @@ Safety archives appear in `gamestack backup list minecraft-paper` and can be
 restored with the same command. Allow space for staged data plus a full safety
 archive; no recovery copies are pruned. If restore is interrupted or health fails,
 read the [restore recovery guide](../../docs/cli.md#interrupted-restore-recovery)
-before starting again. See the [restore acceptance checklist](acceptance.md#restore-acceptance--pending).
-Implementation and automated tests do not establish successful in-game recovery.
+before starting again. See the [restore acceptance checklist](acceptance.md#restore-acceptance--passed-by-user-confirmation).
+The user confirmed in-game world recovery and all backup/restore criteria.
+Implementation and automated tests alone do not establish it.
+
+## Explicit update and recovery
+
+For a disposable instance on the reviewed build 121, use the included
+[build 129 candidate](candidates/26.2-129/pack.yaml) and follow the
+[CLI update guide](../../docs/cli.md#explicit-paper-updates):
+
+```bash
+gamestack update minecraft-paper --pack packs/minecraft-paper/candidates/26.2-129/pack.yaml
+gamestack update minecraft-paper --recover
+```
+
+The first command requires a running, healthy server, creates a verified backup
+while stopped, recreates on the pinned image, and checks the downloaded Paper
+JAR checksum. The second returns the active world to its **pre-update** state
+and retains later data separately. Both require confirmation (`--yes` for
+scripts). Keep room for multiple full world copies. The current build 121 pack
+and its settings are not silently changed; this workflow needs a selected
+reviewed candidate. Live update acceptance is still pending.

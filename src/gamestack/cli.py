@@ -65,6 +65,20 @@ def parser() -> argparse.ArgumentParser:
     restore.add_argument("instance", help="Original installed instance name from gamestack list")
     restore.add_argument("backup_id", nargs="?", help="ID from backup list, without .tar; omit for interactive selection")
     restore.add_argument("--yes", action="store_true", help="Confirm replacement and any missing-data warning without prompting; scripts also require an ID")
+    update = command_parser(commands, "update", "Apply a reviewed Paper update or recover the previous build",
+        "Update a running, healthy Paper server from a reviewed pinned GamePack and sibling upstream-lock.json.\n"
+        "The server stops cleanly, makes a verified backup, recreates on the selected image, then checks health and the Paper JAR checksum.\n"
+        "Recovery restores the pre-update world and configuration while retaining later world data separately.\n"
+        "All backups and recovery copies are kept. Allow disk space for multiple full world copies.\n"
+        "Interactive confirmation is required; scripts must pass --yes. An interrupted update must be recovered before other changes.",
+        "  gamestack update friends --pack /path/to/reviewed/pack.yaml\n"
+        "  gamestack update friends --recover\n"
+        "  gamestack update friends --pack /path/to/reviewed/pack.yaml --yes")
+    update.add_argument("instance", help="Installed Minecraft Paper instance name")
+    choice = update.add_mutually_exclusive_group(required=True)
+    choice.add_argument("--pack", type=Path, help="Reviewed candidate pack.yaml with a sibling upstream-lock.json")
+    choice.add_argument("--recover", action="store_true", help="Restore the pre-update build and world, retaining the current world")
+    update.add_argument("--yes", action="store_true", help="Confirm without prompting; required for scripts")
     remove = command_parser(commands, "rm", "Remove a server container while retaining instance files",
         "Confirm, stop, and remove the instance's server container.\nWorld data, backups, and configuration remain in their current folders; the instance name stays reserved.\nRemoved instances disappear from list and cannot be started or restored through normal commands.\nData stored only in the container's writable layer is lost; packs must keep saves in their data folder.\nScripts must pass --yes. If removal fails, check Docker access, doctor, and the operation lock.",
         "  gamestack rm friends\n  gamestack rm friends --yes")
@@ -212,6 +226,43 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Restored backup: {result.backup_id}")
             print(f"Safety backup: {result.safety_backup}" if result.safety_backup else "Safety backup: none (current data was missing).")
             print(f"Recovery files retained: {result.recovery_directory}\n{args.instance}: {result.state}")
+            return 0
+        if args.command == "update":
+            from . import update
+            if not args.yes and not sys.stdin.isatty():
+                raise GameStackError("Update requires confirmation. Run interactively or pass --yes in scripts.")
+            if args.recover:
+                work, backup_id = update.recovery_summary(runtime, args.instance)
+                print(f"Recover {args.instance} from pre-update backup: {backup_id or 'none; old data never changed'}")
+                print(f"Recovery files: {work}\nPlayers will be disconnected.")
+                if backup_id:
+                    print("Current world will be retained separately.")
+                print("Recovery returns to the pre-update world state; play since then will not appear in the active world.", flush=True)
+                if not args.yes and input("Recover this update? [y/N] ").strip().lower() not in ("y", "yes"):
+                    print("Recovery cancelled.")
+                    return 0
+                result = update.recover(runtime, args.instance)
+                print(f"Recovered {args.instance}: {result.state}")
+                print(f"Pre-update backup: {result.backup}" if result.backup else "Pre-update backup: none (update stopped before capture).")
+                print(f"Later world retained: {result.retained_data}" if result.retained_data else "Later world: no replacement occurred.")
+            else:
+                directory = runtime.directory(args.instance)
+                update.require_no_transaction(directory)
+                directory, current = runtime.inspect(args.instance)
+                proposed, lock = update.candidate(current, args.pack)
+                print(f"Update {args.instance}: GamePack {current['version']} → {proposed['version']}")
+                print(f"Paper {current['environment']['VERSION']['value']} build {current['environment']['PAPER_BUILD']['value']} → "
+                      f"{proposed['environment']['VERSION']['value']} build {proposed['environment']['PAPER_BUILD']['value']}")
+                print(f"Image: {current['image']} → {proposed['image']}")
+                print(f"Reviewed JAR SHA-256: {lock['paper']['sha256']}")
+                print(f"Downtime: clean shutdown, full backup, image recreation, and health wait up to {proposed['startup_timeout']} seconds.")
+                print(f"Backup location: {directory / 'backups'}; all backups are kept.")
+                print("If update fails, check server status and use explicit recovery. Recovery keeps later data but returns to the pre-update world state.", flush=True)
+                if not args.yes and input("Apply this update? [y/N] ").strip().lower() not in ("y", "yes"):
+                    print("Update cancelled.")
+                    return 0
+                result = update.run(runtime, args.instance, args.pack, expected=(proposed, lock))
+                print(f"Updated {args.instance}: healthy on GamePack {result.version}\nPre-update backup: {result.backup}\nRecovery files: {result.work}")
             return 0
         if args.command == "rm":
             directory, _ = runtime.inspect(args.instance)

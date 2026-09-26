@@ -1,6 +1,6 @@
 # Using the development CLI
 
-This is the first engine milestone, version `0.1.0.dev1`. No game is supported yet. Manual backup creation, listing, integrity verification, and restore are implemented. Restore acceptance, retention, updates, and scheduled maintenance are pending; use synthetic data for development.
+This is the first engine milestone, version `0.1.0.dev1`. No game is supported yet. Manual backup creation, listing, integrity verification, restore, and explicit Paper updates are implemented. Backup and restore acceptance passed by user confirmation; live update acceptance and scheduled maintenance are pending. V0.1 keeps every completed backup and safety backup without automatic pruning, so storage use grows; use synthetic data for development.
 
 ## Setup
 
@@ -46,6 +46,8 @@ Use `gamestack --root /srv/gamestack ...` to choose a dedicated writable storage
 | List backups | `gamestack backup list friends` | Newest-first IDs, UTC dates, and sizes; no integrity recheck | Check instance name, root, and backup folder access |
 | Restore backup | `gamestack restore friends [BACKUP-ID]` | Confirm full data replacement; preserve a safety backup; resume only an initially running server | Check compatibility, space, shutdown, permissions, and any restore marker; follow recovery instructions |
 | Verify backup | `gamestack backup verify friends BACKUP-ID` | Full archive integrity verified without extraction | Keep corrupt/incomplete archives and select another copy |
+| Update Paper | `gamestack update friends --pack /reviewed/pack.yaml` | Verified stopped-state backup, recreated server, checked image/JAR and health | Keep all files; run `gamestack update friends --recover` after a failed update |
+| Recover update | `gamestack update friends --recover` | Restore pre-update build/world; keep later world separately | Check old backup, image access, free disk space, and retained `.update.json` |
 | Check instance | `gamestack doctor friends` | Also validates saved configuration and world-folder existence | Restore missing configuration/data; do not bypass safety checks |
 
 Global options precede the command: `gamestack --debug --root /srv/gamestack status friends`. Debug logs include safe operation boundaries, elapsed subprocess time, and failure type, never raw server output. There is no logs command yet because arbitrary upstream logs can expose credentials.
@@ -160,7 +162,7 @@ archived file and checks its hash, metadata, and archive structure without extra
 anything. Both commands remain available after `rm`, or if the active data folder
 is missing, provided the instance and backup folders remain at their original paths.
 Verification detects corruption; it neither authenticates an archive nor proves
-that Minecraft can restore it. Restore acceptance remains pending.
+that Minecraft can restore it. Minecraft Paper restore acceptance passed separately by user confirmation; archive verification alone does not establish recovery.
 
 Failures return exit status 1, and interrupts return 130:
 
@@ -344,3 +346,53 @@ Global `--root` and `--debug` options go before the command, for example
 reminds you of this placement. The top-level help shows the default storage path.
 For backup creation, `list` and `verify` remain valid instance names; adding
 `--help` after those words displays their corresponding focused help pages.
+
+## Explicit Paper updates
+
+Use a maintainer-reviewed Minecraft Paper candidate `pack.yaml` and its sibling
+`upstream-lock.json`. The included acceptance candidate is
+`packs/minecraft-paper/candidates/26.2-129/pack.yaml`, pinned to Paper 26.2
+build 129; the installed pack remains on build 121. The CLI never discovers or
+selects the latest release automatically.
+
+```bash
+gamestack update friends --pack packs/minecraft-paper/candidates/26.2-129/pack.yaml
+# For scripts, add --yes.
+```
+
+The server must be running and healthy. The command checks saved configuration,
+backup space, the candidate lock and image before downtime. It shows the old
+and new pins, expected shutdown/backup/startup downtime, backup folder, and
+recovery consequence without printing saved settings. After confirmation,
+GameStack stops the server, verifies shutdown, makes and verifies a full backup,
+installs the candidate, forces container recreation, waits for health, then
+checks the actual container image and Paper JAR SHA-256. Success means all
+checks passed. If a check fails, preserve the printed update directory and
+journal; the current server may be stopped or uncertain. Run `gamestack status
+friends` before recovery.
+
+```bash
+gamestack update friends --recover
+# For scripts, add --yes.
+```
+
+Recovery works after an interrupted/failed update and after the last successful
+update. It verifies the old archive and obtains the old pinned image before
+stopping the current server. It retains the current `data/` folder in the
+printed `.update-.../post-update-data/`, restores the pre-update configuration
+and world, then checks the old server's health and JAR. **The active world goes
+back to the pre-update state.** Changes made after the update remain only in
+the retained copy (and a verified post-update archive when one could be made).
+All archives and world copies are kept; v0.1 has no pruning. Allow space for a
+full pre-update archive, a staged restore copy, a post-update archive when
+possible, and the retained later world. The prior image must remain obtainable.
+
+An unfinished `.update.json` blocks start, restart, backup creation, restore,
+removal, and another update. `status`, backup listing, and backup verification
+remain available. If `.operation.lock` was left by an interruption, verify no
+GameStack process is still operating before removing that lock file. Then use
+`--recover`; do not edit the journal or move worlds by hand. On a recovery
+failure, retain everything, correct the reported disk/Docker/permission issue,
+and retry `--recover`. If the pre-update backup was never created, recovery
+restores the original configuration and checks that the original server starts;
+there is no later world to replace.

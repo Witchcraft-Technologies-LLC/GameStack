@@ -367,6 +367,14 @@ class Runtime:
             raise GameStackError(f"Could not start {instance} and confirm its health. Check downloads, free memory/disk, game port conflicts, and world folder permissions. Files were retained; the server may still be running. Run gamestack status {instance} and gamestack doctor {instance} before retrying.") from exc
 
     def lifecycle(self, action: str, instance: str) -> str:
+        if action == "status":
+            directory = self.directory(instance)
+            try:
+                child(directory, ".update.json").lstat()
+            except FileNotFoundError:
+                pass
+            else:
+                return self.quick_status(instance)
         directory, pack = self.inspect(instance, allow_missing_data=action in ("stop", "status"))
         with self.lock(directory):
             from .restore import require_no_transaction

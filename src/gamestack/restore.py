@@ -29,6 +29,8 @@ class RestoreResult:
 
 
 def require_no_transaction(directory: Path) -> None:
+    from .update import require_no_transaction as require_no_update
+    require_no_update(directory)
     path = backup.safe_child(directory, MARKER)
     try:
         path.lstat()
