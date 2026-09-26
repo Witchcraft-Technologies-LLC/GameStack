@@ -1,6 +1,6 @@
 # CI and GitHub releases
 
-The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0rc1`. Backup/restore acceptance passed by user confirmation; explicit Paper update acceptance passed by user sign-off; final GamePack release acceptance remains pending.
+The `CI and release` workflow tests pull requests and pushes to `main` or `fix/ci-*` branches. CI fix branches can therefore run the full test and build matrix before a PR is opened. A manual run on `main` additionally tags and publishes the tested commit. Ordinary pushes never publish. This is release infrastructure for the experimental engine; the first version remains `0.1.0`. Backup/restore acceptance passed by user confirmation; explicit Paper update acceptance passed by user sign-off; final GamePack release acceptance remains pending.
 
 ## Release a version
 
@@ -28,11 +28,11 @@ Checks include:
 Artifacts have versioned names:
 
 ```text
-gamestack-0.1.0rc1-py3-none-any.whl
-gamestack-0.1.0rc1.tar.gz
-gamestack-0.1.0rc1-linux-x86_64.tar.gz
-gamestack-0.1.0rc1-windows-x86_64.zip
-gamestack-0.1.0rc1-macos-arm64.tar.gz
+gamestack-0.1.0-py3-none-any.whl
+gamestack-0.1.0.tar.gz
+gamestack-0.1.0-linux-x86_64.tar.gz
+gamestack-0.1.0-windows-x86_64.zip
+gamestack-0.1.0-macos-arm64.tar.gz
 SHA256SUMS
 ```
 
@@ -46,16 +46,16 @@ Download the desired archive and `SHA256SUMS` from the same GitHub Release. Comp
 
 ```bash
 # Linux
-sha256sum gamestack-0.1.0rc1-linux-x86_64.tar.gz
+sha256sum gamestack-0.1.0-linux-x86_64.tar.gz
 # macOS
-shasum -a 256 gamestack-0.1.0rc1-macos-arm64.tar.gz
+shasum -a 256 gamestack-0.1.0-macos-arm64.tar.gz
 ```
 
-On Windows, use `Get-FileHash .\gamestack-0.1.0rc1-windows-x86_64.zip -Algorithm SHA256` in PowerShell. Checksums detect corruption; they are not an independent publisher signature.
+On Windows, use `Get-FileHash .\gamestack-0.1.0-windows-x86_64.zip -Algorithm SHA256` in PowerShell. Checksums detect corruption; they are not an independent publisher signature.
 
 Extract a native archive and keep its `gamestack` directory intact. Run `./gamestack/gamestack --help` on Linux/macOS or `.\gamestack\gamestack.exe --help` on Windows. You may put that directory on PATH. The `_internal` directory is required; moving only the executable breaks it. Python is bundled; Docker and Compose remain separate prerequisites.
 
-Alternatively, in a Python 3.11+ virtual environment, install the downloaded wheel with `python -m pip install ./gamestack-0.1.0rc1-py3-none-any.whl`. Dependency downloads may be needed. The source archive includes the engine, tests, build scripts, example, documentation, and license notices.
+Alternatively, in a Python 3.11+ virtual environment, install the downloaded wheel with `python -m pip install ./gamestack-0.1.0-py3-none-any.whl`. Dependency downloads may be needed. The source archive includes the engine, tests, build scripts, example, documentation, and license notices.
 
 Native bundles have no Windows certificate signature or Apple Developer ID/notarization. macOS tooling may apply an ad-hoc signature needed to execute on ARM64; that is not publisher verification. OS download protection may prompt or block execution. Python packages remain an installation alternative.
 

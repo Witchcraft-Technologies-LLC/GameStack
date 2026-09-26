@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "gamestack"
-version = "0.1.0rc1"
+version = "0.1.0"
 description = "A small CLI runtime for declarative game server packs"
 readme = "README.md"
 license-files = ["LICENSE", "THIRD_PARTY.md"]
