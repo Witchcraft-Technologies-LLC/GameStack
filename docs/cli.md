@@ -1,6 +1,6 @@
 # Using the development CLI
 
-This is the first engine milestone, version `0.1.0.dev1`. No game is supported yet. Manual backup creation, listing, integrity verification, restore, and explicit Paper updates are implemented. Backup, restore, and explicit Paper update acceptance passed by user confirmation; scheduled maintenance is pending. V0.1 keeps every completed backup and safety backup without automatic pruning, so storage use grows; use synthetic data for development.
+This is the first engine milestone, version `0.1.0rc1`. No game is supported yet. Manual backup creation, listing, integrity verification, restore, and explicit Paper updates are implemented. Backup, restore, and explicit Paper update acceptance passed by user confirmation; scheduled maintenance is pending. V0.1 keeps every completed backup and safety backup without automatic pruning, so storage use grows; use synthetic data for development.
 
 ## Setup
 
