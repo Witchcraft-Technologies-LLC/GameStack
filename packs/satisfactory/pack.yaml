@@ -1,0 +1,43 @@
+# Experimental: see README.md for ownership requirements and unverified acceptance gates.
+schema_version: 2
+id: satisfactory
+version: "0.1.0-dev1"
+name: "GameStack — private server for Satisfactory"
+image: wolveix/satisfactory-server@sha256:e103700ae6ae4c50f19dac80eadb2a805c5b885e179ae2a40850e967bf189efd
+data_path: /config
+user: installing-user
+stop_timeout: 120
+startup_timeout: 600
+ports:
+  - host: 7777
+    container: 7777
+    protocol: tcp
+    purpose: Satisfactory player connections
+  - host: 7777
+    container: 7777
+    protocol: udp
+    purpose: Satisfactory player connections
+  - host: 8888
+    container: 8888
+    protocol: tcp
+    purpose: Satisfactory reliable messaging
+environment:
+  MAXPLAYERS:
+    prompt: "Maximum number of players"
+    secret: false
+    default: "4"
+  MAXOBJECTS:
+    prompt: "Maximum number of objects"
+    secret: false
+    default: "2162688"
+  STEAMBETA:
+    prompt: "Use the steam beta branch?"
+    secret: false
+    default: "false"
+  PGID:
+    value: "1000"
+  PUID:
+    value: "1000"
+healthcheck:
+  - bash
+  - /home/steam/healthcheck.sh
