@@ -72,7 +72,7 @@ jobs:
       - run: python -m build --no-isolation
       - run: python -m twine check --strict dist/*
       - run: python scripts/ci.py package-smoke
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-packages
           path: dist/*
@@ -114,13 +114,13 @@ jobs:
           GAMESTACK_DOCKER_TEST: '1'
           GAMESTACK_EXECUTABLE: ${{ steps.bundle.outputs.executable }}
         run: python -m unittest discover -s tests/integration -v
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure() && runner.os == 'Linux'
         with:
           name: native-docker-diagnostics
           path: ci-diagnostics/
           retention-days: 7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-${{ matrix.target }}
           path: native-dist/*
@@ -144,7 +144,7 @@ jobs:
         env:
           GAMESTACK_DOCKER_TEST: '1'
         run: python -m unittest discover -s tests/integration -v
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: docker-diagnostics
@@ -179,7 +179,7 @@ jobs:
           merge-multiple: true
           path: release-assets
       - run: python scripts/ci.py checksums
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: verified-release
           path: release-assets/*
